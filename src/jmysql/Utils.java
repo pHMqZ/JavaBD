@@ -5,16 +5,21 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Scanner;
 
 public class Utils {
 
 	static Scanner teclado = new Scanner(System.in);
-	
-	static Statement produtos;
-	static PreparedStatement produto;
+
+	static int qtd, qtdAll;
+	static ResultSet res, resAll;
+	static PreparedStatement produtos, produto;
 	static Connection conn;
+	static String buscarTodos = "select * from produtos";
+	static String buscarPorID = "select * from produtos where id=?";
+	static String inserir = "insert into produtos (nome, preco, estoque) values (?,?,?)";
+	static String atualizar = "update produtos set nome=?, preco=?, estoque=? where id=?";
+	static String deletar = "delete from produtos where id=?";
 
 	public static Connection conectar() {
 		String CLASSE_DRIVER = "com.mysql.cj.jdbc.Driver";
@@ -24,7 +29,7 @@ public class Utils {
 
 		try {
 			Class.forName(CLASSE_DRIVER);
-			//System.out.println("Conexão ok");
+			// System.out.println("Conexão ok");
 			return DriverManager.getConnection(URL_SERVIDOR, USUARIO, SENHA);
 		} catch (Exception e) {
 			if (e instanceof ClassNotFoundException)
@@ -46,31 +51,39 @@ public class Utils {
 			}
 		}
 	}
-	
+
 	public static void statement() throws SQLException {
 		conn = conectar();
+		produtos = conn.prepareStatement(buscarTodos, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+		produto = conn.prepareStatement(buscarPorID, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+	}
+
+	public static void result() throws SQLException {
+		res = produto.executeQuery();
+		resAll = produtos.executeQuery();
+
+		res.last();
+		qtd = res.getRow();
+		res.beforeFirst();
+		resAll.last();
+		qtdAll = resAll.getRow();
+		resAll.beforeFirst();
 	}
 
 	public static void listar() {
-		String buscarTodos = "select * from produtos";
 
 		try {
 			statement();
-			produtos = conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-			ResultSet res = produtos.executeQuery(buscarTodos);
-
-			res.last();
-			int qtd = res.getRow();
-			res.beforeFirst();
+			result();
 
 			if (qtd > 0) {
 				System.out.println("---Listando produtos---");
-				while (res.next()) {
+				while (resAll.next()) {
 					System.out.println("---------------");
-					System.out.println("ID: " + res.getInt(1));
-					System.out.println("Produto: " + res.getString(2));
-					System.out.println("Preço: " + res.getFloat(3));
-					System.out.println("Estoque: " + res.getInt(4));
+					System.out.println("ID: " + resAll.getInt(1));
+					System.out.println("Produto: " + resAll.getString(2));
+					System.out.println("Preço: " + resAll.getFloat(3));
+					System.out.println("Estoque: " + resAll.getInt(4));
 					System.out.println("---------------");
 				}
 			} else {
@@ -89,85 +102,71 @@ public class Utils {
 		System.out.println("Informe os dados do produtos: ");
 		System.out.println("Nome: ");
 		String nome = teclado.nextLine();
-		
+
 		System.out.println("Preço: ");
 		float preco = teclado.nextFloat();
-		
+
 		System.out.println("Estoque: ");
 		int estoque = teclado.nextInt();
-		
-		String inserir = "insert into produtos (nome, preco, estoque) values (?,?,?)";
-		
+
 		try {
 			statement();
 			PreparedStatement salvar = conn.prepareStatement(inserir);
-			
+
 			salvar.setString(1, nome);
 			salvar.setFloat(2, preco);
 			salvar.setInt(3, estoque);
-			
+
 			salvar.executeUpdate();
 			salvar.close();
-			
+
 			desconectar(conn);
-			
-			System.out.println("Produto "+nome+" salvo com sucesso.");
+
+			System.out.println("Produto " + nome + " salvo com sucesso.");
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.err.println("Erro salvando produto");
 			System.exit(-42);
 		}
-		
+
 	}
 
 	public static void atualizar() {
 		System.out.println("Informe o código do produto: ");
 		int id = Integer.parseInt(teclado.nextLine());
-		
-		String buscarPorID = "select * from produtos where id=?";
-		
+
 		try {
 			statement();
-			produto = conn.prepareStatement(buscarPorID,ResultSet.TYPE_SCROLL_SENSITIVE, 
-                    ResultSet.CONCUR_UPDATABLE);
-			
+
 			produto.setInt(1, id);
-			
-			ResultSet res = produto.executeQuery();
-			
-			res.last();
-			int qtd = res.getRow();
-			res.beforeFirst();
-			
-			if(qtd > 0) {
+
+			if (qtd > 0) {
 				System.out.println("Informe os dados do produtos: ");
 				System.out.println("Nome: ");
 				String nome = teclado.nextLine();
-				
+
 				System.out.println("Preço: ");
 				float preco = teclado.nextFloat();
-				
+
 				System.out.println("Estoque: ");
 				int estoque = teclado.nextInt();
-				
-				String atualizar = "update produtos set nome=?, preco=?, estoque=? where id=?";
-				
+
 				PreparedStatement upd = conn.prepareStatement(atualizar);
 				upd.setString(1, nome);
 				upd.setFloat(2, preco);
 				upd.setInt(3, estoque);
 				upd.setInt(4, id);
-				
+
 				upd.executeUpdate();
 				upd.close();
 				desconectar(conn);
-				
-				System.out.println("Produto "+nome+" foi atualizado com sucesso");
+
+				System.out.println("Produto " + nome + " foi atualizado com sucesso");
 			} else {
 				System.out.println("Não existe produto com o id informado");
 			}
-			
-		} catch(Exception e) {
+
+		} catch (Exception e) {
 			e.printStackTrace();
 			System.err.println("Erro ao atualizar o produto");
 			System.exit(-42);
@@ -175,7 +174,30 @@ public class Utils {
 	}
 
 	public static void deletar() {
-		System.out.println("Deletando produtos...");
+		System.out.println("Informe o codigo do produto: ");
+		int id = Integer.parseInt(teclado.nextLine());
+
+		try {
+			statement();
+			produto.setInt(1, id);
+			result();
+
+			if (qtd > 0) {
+				PreparedStatement del = conn.prepareStatement(deletar);
+				del.setInt(1, id);
+				del.executeUpdate();
+				del.close();
+				desconectar(conn);
+				System.out.println("Produto excluído com sucesso");
+			} else {
+				System.out.println("Produto com ID informado não encontrado na lista de dados");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("Erro ao deletar o produto");
+			System.exit(-42);
+		}
 	}
 
 	public static void menu() {
@@ -195,7 +217,7 @@ public class Utils {
 			atualizar();
 		} else if (opcao == 4) {
 			deletar();
-		} else if(opcao == 5){
+		} else if (opcao == 5) {
 			conectar();
 		} else {
 			System.out.println("Opção Inválida.");
