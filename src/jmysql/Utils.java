@@ -13,6 +13,7 @@ public class Utils {
 	static Scanner teclado = new Scanner(System.in);
 	
 	static Statement produtos;
+	static PreparedStatement produto;
 	static Connection conn;
 
 	public static Connection conectar() {
@@ -48,7 +49,6 @@ public class Utils {
 	
 	public static void statement() throws SQLException {
 		conn = conectar();
-		produtos = conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 	}
 
 	public static void listar() {
@@ -56,6 +56,7 @@ public class Utils {
 
 		try {
 			statement();
+			produtos = conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 			ResultSet res = produtos.executeQuery(buscarTodos);
 
 			res.last();
@@ -120,7 +121,57 @@ public class Utils {
 	}
 
 	public static void atualizar() {
-		System.out.println("Atualizando produtos...");
+		System.out.println("Informe o código do produto: ");
+		int id = Integer.parseInt(teclado.nextLine());
+		
+		String buscarPorID = "select * from produtos where id=?";
+		
+		try {
+			statement();
+			produto = conn.prepareStatement(buscarPorID,ResultSet.TYPE_SCROLL_SENSITIVE, 
+                    ResultSet.CONCUR_UPDATABLE);
+			
+			produto.setInt(1, id);
+			
+			ResultSet res = produto.executeQuery();
+			
+			res.last();
+			int qtd = res.getRow();
+			res.beforeFirst();
+			
+			if(qtd > 0) {
+				System.out.println("Informe os dados do produtos: ");
+				System.out.println("Nome: ");
+				String nome = teclado.nextLine();
+				
+				System.out.println("Preço: ");
+				float preco = teclado.nextFloat();
+				
+				System.out.println("Estoque: ");
+				int estoque = teclado.nextInt();
+				
+				String atualizar = "update produtos set nome=?, preco=?, estoque=? where id=?";
+				
+				PreparedStatement upd = conn.prepareStatement(atualizar);
+				upd.setString(1, nome);
+				upd.setFloat(2, preco);
+				upd.setInt(3, estoque);
+				upd.setInt(4, id);
+				
+				upd.executeUpdate();
+				upd.close();
+				desconectar(conn);
+				
+				System.out.println("Produto "+nome+" foi atualizado com sucesso");
+			} else {
+				System.out.println("Não existe produto com o id informado");
+			}
+			
+		} catch(Exception e) {
+			e.printStackTrace();
+			System.err.println("Erro ao atualizar o produto");
+			System.exit(-42);
+		}
 	}
 
 	public static void deletar() {
