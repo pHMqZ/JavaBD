@@ -11,6 +11,9 @@ import java.util.Scanner;
 public class Utils {
 
 	static Scanner teclado = new Scanner(System.in);
+	
+	static Statement produtos;
+	static Connection conn;
 
 	public static Connection conectar() {
 		String CLASSE_DRIVER = "com.mysql.cj.jdbc.Driver";
@@ -42,13 +45,17 @@ public class Utils {
 			}
 		}
 	}
+	
+	public static void statement() throws SQLException {
+		conn = conectar();
+		produtos = conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+	}
 
 	public static void listar() {
 		String buscarTodos = "select * from produtos";
 
 		try {
-			Connection conn = conectar();
-			Statement produtos = conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+			statement();
 			ResultSet res = produtos.executeQuery(buscarTodos);
 
 			res.last();
@@ -78,7 +85,38 @@ public class Utils {
 	}
 
 	public static void inserir() {
-		System.out.println("Inserindo produtos...");
+		System.out.println("Informe os dados do produtos: ");
+		System.out.println("Nome: ");
+		String nome = teclado.nextLine();
+		
+		System.out.println("Preço: ");
+		float preco = teclado.nextFloat();
+		
+		System.out.println("Estoque: ");
+		int estoque = teclado.nextInt();
+		
+		String inserir = "insert into produtos (nome, preco, estoque) values (?,?,?)";
+		
+		try {
+			statement();
+			PreparedStatement salvar = conn.prepareStatement(inserir);
+			
+			salvar.setString(1, nome);
+			salvar.setFloat(2, preco);
+			salvar.setInt(3, estoque);
+			
+			salvar.executeUpdate();
+			salvar.close();
+			
+			desconectar(conn);
+			
+			System.out.println("Produto "+nome+" salvo com sucesso.");
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("Erro salvando produto");
+			System.exit(-42);
+		}
+		
 	}
 
 	public static void atualizar() {
